@@ -1,0 +1,69 @@
+{
+  "schema_version": 1,
+  "passed": true,
+  "score": 78,
+  "violations": [],
+  "summary": {
+    "active": 3,
+    "suppressed": 0,
+    "by_severity": {
+      "critical": 0,
+      "high": 1,
+      "medium": 2,
+      "low": 0,
+      "info": 0
+    },
+    "by_tool": {
+      "checkov": 1,
+      "gitleaks": 0,
+      "semgrep": 1,
+      "trivy-container": 0,
+      "trivy-fs": 1
+    }
+  },
+  "findings": [
+    {
+      "tool": "semgrep",
+      "severity": "medium",
+      "rule_id": "python.lang.security.audit.subprocess-shell-true",
+      "title": "Subprocess call uses shell=True with a potentially dynamic command.",
+      "location": "src/runner.py:31",
+      "description": "Subprocess call uses shell=True with a potentially dynamic command.",
+      "fingerprint": "12503341fc4bffc348b1",
+      "metadata": {
+        "confidence": "MEDIUM",
+        "category": "security"
+      }
+    },
+    {
+      "tool": "trivy-fs",
+      "severity": "high",
+      "rule_id": "CVE-2026-DEMO",
+      "title": "Synthetic dependency vulnerability",
+      "location": "requirements.txt :: example-library@1.0.0",
+      "description": "Synthetic data used to demonstrate normalized SCA reporting.",
+      "fingerprint": "57ac473fea43175e60ed",
+      "metadata": {
+        "package": "example-library",
+        "installed_version": "1.0.0",
+        "fixed_version": "1.0.1",
+        "primary_url": null
+      }
+    },
+    {
+      "tool": "checkov",
+      "severity": "medium",
+      "rule_id": "CKV_DOCKER_3",
+      "title": "Ensure that a user for the container has been created",
+      "location": "/Dockerfile:1",
+      "description": "Ensure that a user for the container has been created",
+      "fingerprint": "a8aee50ab0bf08de8387",
+      "metadata": {
+        "resource": "Dockerfile",
+        "framework": null,
+        "guideline": null
+      }
+    }
+  ],
+  "suppressed": []
+}

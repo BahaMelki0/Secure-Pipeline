@@ -1,0 +1,17 @@
+name: SecurePipeline self-scan
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  security:
+    uses: ./.github/workflows/reusable-security.yml
+    with:
+      policy-path: policy/security-policy.yml
+      enable-container-scan: false
+      toolkit-ref: ${{ github.ref }}

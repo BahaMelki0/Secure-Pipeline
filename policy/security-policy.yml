@@ -1,0 +1,33 @@
+version: 1
+
+gate:
+  # critical blocks immediately; set to high, medium, low, info, or off as needed.
+  fail_on_severity: critical
+  max_findings:
+    high: 5
+    medium: 20
+
+scoring:
+  minimum_score: 60
+  weights:
+    critical: 30
+    high: 12
+    medium: 5
+    low: 1
+    info: 0
+
+# A report must exist even when a scanner finds zero issues.
+required_tools:
+  - semgrep
+  - gitleaks
+  - trivy-fs
+  - checkov
+
+# Every exception must be narrow and explain the accepted risk.
+# Patterns use shell-style wildcards. Prefer fingerprints for one exact finding.
+allowlist: []
+#  - tool: checkov
+#    rule_id: CKV_DOCKER_3
+#    location: "*/Dockerfile:*"
+#    fingerprint: "*"
+#    reason: "Container runs as a platform-managed UID; reviewed by APPSEC-1234"

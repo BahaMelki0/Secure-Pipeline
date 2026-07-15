@@ -1,0 +1,14 @@
+{
+  "results": [
+    {
+      "check_id": "python.lang.security.audit.subprocess-shell-true",
+      "path": "src/runner.py",
+      "start": {"line": 31},
+      "extra": {
+        "severity": "WARNING",
+        "message": "Subprocess call uses shell=True with a potentially dynamic command.",
+        "metadata": {"confidence": "MEDIUM", "category": "security"}
+      }
+    }
+  ]
+}
