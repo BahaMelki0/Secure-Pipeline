@@ -2,7 +2,7 @@
 
 The October 6, 2026 review added regression coverage for incomplete scanner reports, malformed structures, boolean policy values, expired/unscoped exceptions and workflow path escapes.
 
-Run `python -m pytest -q`. Exit codes from the aggregator are 0 (policy pass), 1 (policy failure), and 2 (report/policy/configuration error). A configuration error must never be interpreted as a clean scan.
+Run `python -m pytest -q`. The current suite has 31 passing tests. The bundled demo passes at 78/100 with three active findings. Exit codes from the aggregator are 0 (policy pass), 1 (policy failure), and 2 (report/policy/configuration error). A configuration error must never be interpreted as a clean scan.
 
 ## Fail-safe collection
 
@@ -21,3 +21,5 @@ Exceptions require a reason and rule/fingerprint scope. Optional `expires: YYYY-
 5. In a test consumer, introduce a controlled vulnerable fixture: verify policy failure and raw artifacts; remove it and rerun.
 
 Unit tests validate the aggregator and input contracts, not the entire hosted scanner ecosystem. Full scanner installation/remote rule access, Docker execution and hosted workflow results are separate integration checks. HTML reports use the shared Obsidian Signal red/black palette; severity colors preserve meaning.
+
+The hosted run from this review could not start: GitHub reported an account billing restriction. Resolve that restriction and rerun Actions before treating hosted scanning as verified.
