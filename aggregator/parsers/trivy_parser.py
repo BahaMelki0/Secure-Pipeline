@@ -10,6 +10,10 @@ from aggregator.models import Finding, Severity
 def parse_trivy(payload: Any) -> list[Finding]:
     if not isinstance(payload, dict):
         raise TypeError("expected a Trivy JSON object")
+    if "Results" not in payload and "SchemaVersion" not in payload:
+        raise TypeError("missing Trivy results/schema metadata")
+    if payload.get("Results") is not None and not isinstance(payload["Results"], list):
+        raise TypeError("Results must be an array or null")
     findings: list[Finding] = []
     for result in payload.get("Results") or []:
         target = str(result.get("Target") or payload.get("ArtifactName") or "unknown")
@@ -39,4 +43,3 @@ def parse_trivy(payload: Any) -> list[Finding]:
                 metadata={"resolution": misconfiguration.get("Resolution")},
             ))
     return findings
-

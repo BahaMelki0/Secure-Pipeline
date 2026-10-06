@@ -10,6 +10,10 @@ from aggregator.models import Finding, Severity
 def parse_semgrep(payload: Any) -> list[Finding]:
     if not isinstance(payload, dict):
         raise TypeError("expected an object with a results array")
+    if not isinstance(payload.get("results"), list):
+        raise TypeError("missing or invalid results array")
+    if payload.get("errors"):
+        raise ValueError("scanner reported errors; scan coverage is incomplete")
     findings: list[Finding] = []
     for result in payload.get("results", []):
         extra = result.get("extra") or {}
@@ -29,4 +33,3 @@ def parse_semgrep(payload: Any) -> list[Finding]:
             metadata={"confidence": metadata.get("confidence"), "category": metadata.get("category")},
         ))
     return findings
-

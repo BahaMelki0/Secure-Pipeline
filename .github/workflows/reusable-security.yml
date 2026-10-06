@@ -41,6 +41,9 @@ jobs:
       TARGET_DIR: ${{ github.workspace }}/target
       TOOLKIT_DIR: ${{ github.workspace }}/.secure-pipeline
       IMAGE_TAG: secure-pipeline-target:${{ github.sha }}
+      SCAN_PATH: ${{ inputs.scan-path }}
+      DOCKERFILE: ${{ inputs.dockerfile }}
+      REQUESTED_POLICY: ${{ inputs.policy-path }}
 
     steps:
       - name: Check out target repository
@@ -65,6 +68,11 @@ jobs:
           cache: pip
           cache-dependency-path: .secure-pipeline/requirements.txt
 
+      - name: Validate target paths
+        id: paths
+        shell: bash
+        run: PYTHONPATH="$TOOLKIT_DIR" python -m aggregator.workflow_paths
+
       - name: Prepare reports and scanners
         shell: bash
         run: |
@@ -78,9 +86,13 @@ jobs:
       - name: SAST - Semgrep
         shell: bash
         run: |
+          set +e
           semgrep scan --config p/default --json \
             --output "$REPORT_DIR/semgrep.json" \
-            "$TARGET_DIR/${{ inputs.scan-path }}" || true
+            "$SCAN_DIR"
+          scanner_status=$?
+          set -e
+          if [[ "$scanner_status" -gt 1 ]]; then exit "$scanner_status"; fi
 
       - name: Secrets - Gitleaks
         shell: bash
@@ -96,7 +108,7 @@ jobs:
         uses: aquasecurity/trivy-action@a9c7b0f06e461e9d4b4d1711f154ee024b8d7ab8 # v0.36.0
         with:
           scan-type: fs
-          scan-ref: target/${{ inputs.scan-path }}
+          scan-ref: ${{ env.SCAN_DIR }}
           scanners: vuln
           format: json
           output: security-reports/trivy-fs.json
@@ -109,7 +121,7 @@ jobs:
           ENABLED: ${{ inputs.enable-container-scan }}
           DOCKERFILE: ${{ inputs.dockerfile }}
         run: |
-          if [[ "$ENABLED" == "true" && -f "$TARGET_DIR/$DOCKERFILE" ]]; then
+          if [[ "$ENABLED" == "true" && -f "$DOCKERFILE_PATH" ]]; then
             echo "exists=true" >> "$GITHUB_OUTPUT"
           else
             echo "exists=false" >> "$GITHUB_OUTPUT"
@@ -118,7 +130,7 @@ jobs:
       - name: Build target container
         if: steps.container.outputs.exists == 'true'
         shell: bash
-        run: docker build --file "$TARGET_DIR/${{ inputs.dockerfile }}" --tag "$IMAGE_TAG" "$TARGET_DIR"
+        run: docker build --file "$DOCKERFILE_PATH" --tag "$IMAGE_TAG" "$TARGET_DIR"
 
       - name: Container - Trivy image
         if: steps.container.outputs.exists == 'true'
@@ -132,13 +144,17 @@ jobs:
       - name: Infrastructure as code - Checkov
         shell: bash
         run: |
-          checkov -d "$TARGET_DIR/${{ inputs.scan-path }}" \
-            --output json --quiet > "$REPORT_DIR/checkov.json" || true
+          set +e
+          checkov -d "$SCAN_DIR" \
+            --output json --quiet > "$REPORT_DIR/checkov.json"
+          scanner_status=$?
+          set -e
+          if [[ "$scanner_status" -gt 1 ]]; then exit "$scanner_status"; fi
 
       - name: SBOM - Syft CycloneDX
         uses: anchore/sbom-action@e22c389904149dbc22b58101806040fa8d37a610 # v0.24.0
         with:
-          path: target/${{ inputs.scan-path }}
+          path: ${{ env.SCAN_DIR }}
           format: cyclonedx-json
           output-file: security-reports/sbom.cdx.json
           upload-artifact: false
@@ -150,8 +166,8 @@ jobs:
         env:
           REQUESTED_POLICY: ${{ inputs.policy-path }}
         run: |
-          if [[ -f "$TARGET_DIR/$REQUESTED_POLICY" ]]; then
-            echo "path=$TARGET_DIR/$REQUESTED_POLICY" >> "$GITHUB_OUTPUT"
+          if [[ -f "$REQUESTED_POLICY_FILE" ]]; then
+            echo "path=$REQUESTED_POLICY_FILE" >> "$GITHUB_OUTPUT"
           else
             echo "path=$TOOLKIT_DIR/policy/security-policy.yml" >> "$GITHUB_OUTPUT"
           fi
@@ -160,20 +176,29 @@ jobs:
         shell: bash
         env:
           POLICY_FILE: ${{ steps.policy.outputs.path }}
+          CONTAINER_PRESENT: ${{ steps.container.outputs.exists }}
         run: |
           set +e
+          container_input=()
+          if [[ "$CONTAINER_PRESENT" == "true" ]]; then
+            container_input=(--input "trivy-container=$REPORT_DIR/trivy-container.json")
+          fi
           PYTHONPATH="$TOOLKIT_DIR" python -m aggregator \
             --policy "$POLICY_FILE" \
             --input "semgrep=$REPORT_DIR/semgrep.json" \
             --input "gitleaks=$REPORT_DIR/gitleaks.json" \
             --input "trivy-fs=$REPORT_DIR/trivy-fs.json" \
-            --input "trivy-container=$REPORT_DIR/trivy-container.json" \
+            "${container_input[@]}" \
             --input "checkov=$REPORT_DIR/checkov.json" \
             --markdown "$REPORT_DIR/security-report.md" \
             --html "$REPORT_DIR/security-report.html" \
             --json "$REPORT_DIR/normalized-findings.json"
           status=$?
-          cat "$REPORT_DIR/security-report.md" >> "$GITHUB_STEP_SUMMARY"
+          if [[ -f "$REPORT_DIR/security-report.md" ]]; then
+            cat "$REPORT_DIR/security-report.md" >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "SecurePipeline could not generate a decision report; inspect scanner/aggregation errors." >> "$GITHUB_STEP_SUMMARY"
+          fi
           exit "$status"
 
       - name: Upload raw and consolidated security artifacts

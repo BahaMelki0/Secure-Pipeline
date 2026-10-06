@@ -114,9 +114,10 @@ allowlist:
     location: "*/Dockerfile:*"
     fingerprint: "*"
     reason: "Platform injects a non-root UID; reviewed in APPSEC-1234"
+    expires: "2026-12-31"
 ```
 
-Patterns use shell-style wildcards. Prefer an exact fingerprint when accepting one concrete finding. Never put a secret value in an allowlist; the Gitleaks parser deliberately does not ingest secret material.
+Every exception requires a nonblank reason and a specific rule or fingerprint. Optional expiration dates are inclusive in UTC; expired entries no longer suppress findings. Patterns use shell-style wildcards. Prefer an exact fingerprint when accepting one concrete finding. Never put a secret value in an allowlist; the Gitleaks parser deliberately does not ingest secret material.
 
 ## Run the aggregator locally
 
@@ -124,6 +125,7 @@ Python 3.11 or newer is required.
 
 ```bash
 python -m venv .venv
+source .venv/bin/activate  # Windows: .venv\Scripts\Activate.ps1
 python -m pip install -r requirements.txt
 python -m aggregator \
   --policy policy/security-policy.yml \
@@ -146,7 +148,7 @@ The command always writes Markdown, HTML, and normalized JSON when inputs are va
 
 The pipeline is applied to the real `Apk-sentinel` project through its own `.github/workflows/security-pipeline.yml` and `.github/security-policy.yml`. That consumer proves the template is usable outside this repository; it disables only the container stage because APK Sentinel currently has no Dockerfile.
 
-Publish this repository at `BahaMelki0/Secure-Pipeline` before enabling the APK Sentinel workflow. The reusable-workflow reference cannot resolve until that repository and ref exist on GitHub.
+The reusable workflow is published at [BahaMelki0/Secure-Pipeline](https://github.com/BahaMelki0/Secure-Pipeline). A configured consumer is an integration example; check its Actions run before claiming a successful live scan.
 
 ## Example report and tests
 
@@ -171,12 +173,19 @@ Run the test suite with `python -m pytest -q`. It covers all parser contracts, s
 
 - GitHub Actions are pinned to full commit SHAs; tag comments keep updates readable.
 - Scanner runtimes are pinned. Vulnerability databases and remote rule packs still update by design, so reports retain the raw evidence used for each decision.
-- Scanner findings do not directly fail their steps. JSON is collected first, then one centralized gate decides the result.
+- Scanner findings are evaluated by the centralized gate. Runtime errors and incomplete or malformed reports fail the run instead of appearing clean.
+- Scan, policy, and Dockerfile paths must stay within the target checkout. A skipped container scan cannot satisfy a required container report.
 - Gitleaks scans full Git history because checkout uses `fetch-depth: 0`, and reports are redacted.
 - The workflow uses read-only repository permissions and disables persisted checkout credentials.
 - SBOM creation is evidence generation; it is not included in the finding score.
 
 Scanner schemas evolve. Update a parser and its fixture test together, then update the pinned tool version. The project intentionally supports only the JSON shapes it tests.
+
+## Report design and manual validation
+
+The standalone HTML report uses the shared red/black palette: black `#090a0d`, panels `#111318`, red `#f04452`, and light text `#f0f1f3`. Severity and pass/fail colors remain distinct for readability.
+
+See [the validation blueprint](docs/VALIDATION.md) for manual pass/fail, malformed-report, exception, and workflow checks.
 
 ## Tool references
 

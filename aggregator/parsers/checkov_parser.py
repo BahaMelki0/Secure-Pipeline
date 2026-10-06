@@ -13,6 +13,14 @@ def parse_checkov(payload: Any) -> list[Finding]:
     for document in documents:
         if not isinstance(document, dict):
             raise TypeError("expected an object or array of framework objects")
+        if not isinstance(document.get("results"), dict):
+            raise TypeError("missing Checkov results object")
+        if document.get("summary", {}).get("parsing_errors", 0) or document["results"].get("parsing_errors"):
+            raise ValueError("scanner reported parsing errors; scan coverage is incomplete")
+        if "failed_checks" not in document["results"]:
+            raise TypeError("missing failed_checks array")
+        if not isinstance(document["results"]["failed_checks"], list):
+            raise TypeError("failed_checks must be an array")
         failed = (document.get("results") or {}).get("failed_checks") or []
         for check in failed:
             path = str(check.get("file_path") or check.get("file_abs_path") or "unknown")

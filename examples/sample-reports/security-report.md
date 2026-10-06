@@ -30,4 +30,4 @@
 | **MEDIUM** | `checkov` | `CKV_DOCKER_3` | Ensure that a user for the container has been created | `/Dockerfile:1` |
 | **MEDIUM** | `semgrep` | `python.lang.security.audit.subprocess-shell-true` | Subprocess call uses shell=True with a potentially dynamic command. | `src/runner.py:31` |
 
-_Generated 2026-07-15T20:50:50.654912+00:00_
+_Generated 2026-10-06T00:34:56.356790+00:00_

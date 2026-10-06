@@ -39,7 +39,7 @@ def parse_file(tool: str, path: str | Path) -> list[Finding]:
         raise ReportParseError(f"{tool}: invalid JSON in {report_path}: {exc.msg}") from exc
     try:
         findings = PARSERS[normalized_tool](payload)
-    except (KeyError, TypeError, ValueError) as exc:
+    except (KeyError, TypeError, ValueError, AttributeError, IndexError) as exc:
         raise ReportParseError(f"{tool}: unsupported report structure in {report_path}: {exc}") from exc
     # Preserve the stage name so filesystem and container Trivy remain distinguishable.
     if normalized_tool in {"trivy-fs", "trivy-container"}:
@@ -52,4 +52,3 @@ def parse_file(tool: str, path: str | Path) -> list[Finding]:
             for item in findings
         ]
     return findings
-

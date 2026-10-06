@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from collections import Counter
 from dataclasses import dataclass, field
+from datetime import date, datetime, timezone
 from fnmatch import fnmatch
 from pathlib import Path
 from typing import Any
@@ -24,8 +25,11 @@ class AllowlistEntry:
     location: str = "*"
     fingerprint: str = "*"
     reason: str = "Accepted risk"
+    expires: date | None = None
 
     def matches(self, finding: Finding) -> bool:
+        if self.expires and datetime.now(timezone.utc).date() > self.expires:
+            return False
         return (
             fnmatch(finding.tool, self.tool.lower())
             and fnmatch(finding.rule_id, self.rule_id)
@@ -54,7 +58,7 @@ class Policy:
             raise PolicyError(f"Invalid policy YAML: {exc}") from exc
         if not isinstance(value, dict):
             raise PolicyError("Policy root must be a YAML mapping")
-        if value.get("version", 1) != 1:
+        if type(value.get("version", 1)) is not int or value.get("version", 1) != 1:
             raise PolicyError("Only security policy version 1 is supported")
         gate = _mapping(value.get("gate"), "gate")
         scoring = _mapping(value.get("scoring"), "scoring")
@@ -67,11 +71,11 @@ class Policy:
             parsed_severity = Severity.parse(severity)
             if str(severity).lower() not in {item.value for item in Severity}:
                 raise PolicyError(f"Unsupported max_findings severity: {severity}")
-            if not isinstance(limit, int) or limit < 0:
+            if type(limit) is not int or limit < 0:
                 raise PolicyError(f"max_findings.{severity} must be a non-negative integer")
             max_findings[parsed_severity] = limit
         minimum_score = scoring.get("minimum_score", 0)
-        if not isinstance(minimum_score, int) or not 0 <= minimum_score <= 100:
+        if type(minimum_score) is not int or not 0 <= minimum_score <= 100:
             raise PolicyError("scoring.minimum_score must be an integer from 0 to 100")
         default_weights = {
             Severity.CRITICAL: 30, Severity.HIGH: 12, Severity.MEDIUM: 5,
@@ -81,7 +85,7 @@ class Policy:
             parsed = Severity.parse(severity)
             if str(severity).lower() not in {item.value for item in Severity}:
                 raise PolicyError(f"Unsupported score severity: {severity}")
-            if not isinstance(weight, int) or weight < 0:
+            if type(weight) is not int or weight < 0:
                 raise PolicyError(f"scoring.weights.{severity} must be a non-negative integer")
             default_weights[parsed] = weight
         raw_allowlist = value.get("allowlist")
@@ -93,10 +97,21 @@ class Policy:
         for index, entry in enumerate(raw_allowlist, start=1):
             if not isinstance(entry, dict):
                 raise PolicyError(f"allowlist entry {index} must be a mapping")
+            if not isinstance(entry.get("reason"), str) or not entry["reason"].strip():
+                raise PolicyError(f"allowlist entry {index} requires an explicit reason")
+            if all(str(entry.get(key, '*')) == '*' for key in ('rule_id', 'fingerprint')):
+                raise PolicyError(f"allowlist entry {index} requires a rule_id or fingerprint scope")
+            expires = None
+            if entry.get('expires') is not None:
+                try:
+                    expires = date.fromisoformat(str(entry['expires']))
+                except ValueError as exc:
+                    raise PolicyError(f"allowlist entry {index} has an invalid expiry date") from exc
             allowlist.append(AllowlistEntry(
                 tool=str(entry.get("tool", "*")), rule_id=str(entry.get("rule_id", "*")),
                 location=str(entry.get("location", "*")), fingerprint=str(entry.get("fingerprint", "*")),
                 reason=str(entry.get("reason", "Accepted risk")),
+                expires=expires,
             ))
         required_tools = value.get("required_tools")
         if required_tools is None:
